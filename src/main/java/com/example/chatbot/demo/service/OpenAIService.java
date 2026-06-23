@@ -2,7 +2,7 @@ package com.example.chatbot.demo.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -23,11 +23,16 @@ public class OpenAIService {
 
     public String askQuestion(String question) {
         try {
+
             if (question == null || question.trim().isEmpty()) {
                 return "Please enter a valid question.";
             }
 
-            String fullUrl = url + "?key=" + apiKey;
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            // ✅ Gemini API key header
+            headers.set("x-goog-api-key", apiKey);
 
             Map<String, Object> textPart = Map.of(
                     "text", question
@@ -41,10 +46,14 @@ public class OpenAIService {
                     "contents", List.of(content)
             );
 
+            HttpEntity<Map<String, Object>> request =
+                    new HttpEntity<>(requestBody, headers);
+
             ResponseEntity<Map> response =
-                    restTemplate.postForEntity(
-                            fullUrl,
-                            requestBody,
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.POST,
+                            request,
                             Map.class
                     );
 
@@ -57,20 +66,13 @@ public class OpenAIService {
             List<Map<String, Object>> candidates =
                     (List<Map<String, Object>>) body.get("candidates");
 
-            if (candidates.isEmpty()) {
-                return "Gemini returned no candidates.";
-            }
-
             Map<String, Object> firstCandidate = candidates.get(0);
+
             Map<String, Object> candidateContent =
                     (Map<String, Object>) firstCandidate.get("content");
 
             List<Map<String, Object>> parts =
                     (List<Map<String, Object>>) candidateContent.get("parts");
-
-            if (parts == null || parts.isEmpty()) {
-                return "Gemini returned no text.";
-            }
 
             return parts.get(0).get("text").toString();
 
